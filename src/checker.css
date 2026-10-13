@@ -1,0 +1,357 @@
+/* slot-flag-checker-core の画面スタイル。クラス名は他と衝突しないよう sfc- で始める */
+
+:root {
+  --sfc-color-bg: #111;
+  --sfc-color-text: #fff;
+  --sfc-color-panel: rgba(255, 255, 255, 0.08);
+  --sfc-color-box: rgba(255, 255, 255, 0.1);
+  --sfc-color-button: #333;
+  --sfc-color-button-hover: #444;
+  --sfc-color-button-active: #555;
+  --sfc-color-switch-track: #ddd;
+  --sfc-color-switch-text: #333;
+  --sfc-color-switch-first: #4caf50;
+  --sfc-color-switch-other: #2196f3;
+  --sfc-color-link: #4fc3f7;
+  --sfc-color-link-hover: #81d4fa;
+  --sfc-color-focus: #ffd54f;
+  --sfc-color-badge-key: #555;
+  --sfc-color-badge-value: #6a6a6a;
+  --sfc-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --sfc-radius: 8px;
+  --sfc-badge-height: 38px;
+  --sfc-badge-gap: 2px;
+  --sfc-gap: 8px;
+}
+
+.sfc-root,
+.sfc-root *,
+.sfc-root *::before,
+.sfc-root *::after {
+  box-sizing: border-box;
+}
+
+/* 画面全体を固定し、スクロールさせない */
+html.sfc-page,
+html.sfc-page body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.sfc-page body {
+  background: var(--sfc-color-bg);
+  color: var(--sfc-color-text);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.sfc-root a {
+  color: var(--sfc-color-link);
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.sfc-root a:hover {
+  color: var(--sfc-color-link-hover);
+}
+
+.sfc-root :focus-visible {
+  outline: 2px solid var(--sfc-color-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- レイアウト ----------
+   幅と拡大率 (--sfc-scale) は checker.js の fitToViewport で設定する。
+   sfc-layout-tall: 縦長画面向け（リール＋条件の下に判別結果）
+   sfc-layout-wide: 横長画面向け（リール・条件・判別結果を横一列）
+*/
+
+.sfc-app {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  gap: var(--sfc-gap);
+  transform: translate(-50%, -50%) scale(var(--sfc-scale, 1));
+}
+
+.sfc-app.sfc-layout-tall {
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "reel controls"
+    "info info";
+}
+
+.sfc-app.sfc-layout-wide {
+  grid-template-columns: auto auto 1fr;
+  grid-template-areas: "reel controls info";
+}
+
+/* ---------- リール ---------- */
+
+.sfc-reel-window {
+  grid-area: reel;
+  /* 表示領域 + 枠線 3px × 2。表示領域の大きさは機種定義から設定する */
+  width: calc(var(--sfc-reel-width, 180px) + 6px);
+  height: calc(var(--sfc-reel-height, 320px) + 6px);
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 10px;
+  background: black;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sfc-reel {
+  width: 100%;
+  height: 100%;
+  background-repeat: repeat-y;
+  cursor: grab;
+}
+
+.sfc-reel:active {
+  cursor: grabbing;
+}
+
+.sfc-reel:focus-visible {
+  outline-offset: -4px;
+}
+
+/* ---------- 条件パネル ---------- */
+
+.sfc-controls {
+  grid-area: controls;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  width: 240px;
+  padding: 12px 20px;
+  background: var(--sfc-color-panel);
+  border-radius: var(--sfc-radius);
+  box-shadow: var(--sfc-shadow);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sfc-layout-tall .sfc-controls {
+  width: 178px;
+  padding: 12px 6px;
+}
+
+.sfc-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.sfc-control-label {
+  font-weight: bold;
+  font-size: 15px;
+  opacity: 0.8;
+}
+
+.sfc-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sfc-stepper-value {
+  min-width: 20px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.sfc-stepper-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: var(--sfc-color-button);
+  color: var(--sfc-color-text);
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.sfc-stepper-button:hover {
+  background: var(--sfc-color-button-hover);
+}
+
+.sfc-stepper-button:active {
+  background: var(--sfc-color-button-active);
+}
+
+/* ---------- 選択スイッチ（2択以上） ---------- */
+
+.sfc-segmented {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 30px;
+  padding: 3px;
+  background-color: var(--sfc-color-switch-track);
+  border-radius: 15px;
+  box-shadow: inset 0 0 3px #999;
+}
+
+.sfc-segmented:has(input:focus-visible) {
+  outline: 2px solid var(--sfc-color-focus);
+  outline-offset: 2px;
+}
+
+.sfc-segmented-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--sfc-count, 2));
+  height: calc(100% - 6px);
+  background-color: var(--sfc-color-switch-other);
+  border-radius: 12px;
+  transform: translateX(calc(100% * var(--sfc-index, 0)));
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.sfc-segmented[data-first] .sfc-segmented-slider {
+  background-color: var(--sfc-color-switch-first);
+}
+
+.sfc-segment {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* 見た目は隠すが、キーボード操作・読み上げの対象には残す */
+.sfc-segment input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sfc-segment span {
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  color: var(--sfc-color-switch-text);
+  transition: color 0.3s ease;
+}
+
+.sfc-segment input:checked + span {
+  color: var(--sfc-color-text);
+}
+
+/* ---------- 判別結果 ---------- */
+
+.sfc-info-area {
+  grid-area: info;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sfc-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sfc-info-row {
+  display: flex;
+  gap: 6px;
+}
+
+.sfc-info-box {
+  padding: 8px 12px;
+  background: var(--sfc-color-box);
+  border-radius: var(--sfc-radius);
+  box-shadow: var(--sfc-shadow);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.sfc-info-box--grow {
+  flex: 1;
+}
+
+.sfc-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.sfc-info-total {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sfc-info-label {
+  display: block;
+  font-weight: bold;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.sfc-info-box > .sfc-info-label {
+  margin-bottom: 4px;
+}
+
+/* 該当数が変わっても高さが変わらないよう、最大該当時の高さを checker.js が min-height に設定する */
+.sfc-badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--sfc-badge-gap);
+  min-height: var(--sfc-badge-height);
+}
+
+.sfc-badge {
+  display: inline-flex;
+  flex-direction: column;
+  height: var(--sfc-badge-height);
+  line-height: 1;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sfc-badge-key {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  background-color: var(--sfc-color-badge-key);
+}
+
+.sfc-badge-value {
+  width: 2.5em;
+  padding: 2px 0;
+  background-color: var(--sfc-color-badge-value);
+  font-family: monospace;
+  text-align: center;
+}
+
+.sfc-note {
+  align-self: flex-end;
+  font-size: 11px;
+  white-space: nowrap;
+}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>テスト実行中</title>
+  <style>
+    body { font-family: sans-serif; margin: 16px; }
+    .pass { color: #1b7f3b; }
+    .fail { color: #c62828; }
+    pre { font-size: 12px; white-space: pre-wrap; }
+  </style>
+</head>
+
+<body>
+  <h1>リリース前テスト（全機種の照合）</h1>
+  <p>
+    手元のコア（このリポジトリの <code>src/</code>）で、各機種リポジトリの判定結果を正解データ（<code>test/golden.json</code>）と照合します。<br>
+    機種リポジトリをこのリポジトリと同じフォルダに並べて置き、その親フォルダを簡易サーバーで配信して開いてください（README.md 参照）。
+  </p>
+  <ul id="results"></ul>
+  <script type="module">
+    import { runGolden } from '../src/testing.js';
+    import { validateMachine } from '../src/validate.js';
+
+    // テスト対象の機種リポジトリ（このリポジトリから見た相対パス）
+    const MACHINES = ['../../HRFlagChk/', '../../DUURFlagChk/'];
+
+    const results = [];
+    for (const base of MACHINES) {
+      const item = document.createElement('li');
+      document.getElementById('results').append(item);
+      try {
+        const machine = (await import(new URL('machine.js', new URL(base, import.meta.url)).href)).default;
+        const golden = await (await fetch(new URL('test/golden.json', new URL(base, import.meta.url)), { cache: 'no-store' })).json();
+        const { errors, warnings } = validateMachine(machine);
+        const result = runGolden(machine, golden);
+        const ok = errors.length === 0 && result.failures.length === 0 && result.missing.length === 0
+          && result.total === result.goldenTotal;
+        item.className = ok ? 'pass' : 'fail';
+        item.textContent = `${ok ? 'PASS' : 'FAIL'} ${machine.id}: ${result.total} 状態中 ${result.failures.length} 件不一致`
+          + ` / 正解データ ${result.goldenTotal} 件 / 定義エラー ${errors.length} 件 / 警告 ${warnings.length} 件`;
+        const details = [...errors, ...warnings, ...result.failures.slice(0, 20).map((f) => `${f.key}\n  期待値: ${f.expected}\n  実際:   ${f.actual}`)];
+        if (details.length > 0) item.append(Object.assign(document.createElement('pre'), { textContent: details.join('\n') }));
+        results.push({ id: machine.id, ok });
+      } catch (error) {
+        item.className = 'fail';
+        item.textContent = `FAIL ${base}: 読み込めません (${error.message})`;
+        results.push({ id: base, ok: false });
+      }
+    }
+    const ok = results.every((r) => r.ok);
+    document.title = ok ? 'PASS' : 'FAIL';
+    window.__testResult = { ok, results };
+  </script>
+</body>
+
+</html>
