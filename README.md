@@ -159,6 +159,10 @@ ES モジュールを使うため、`index.html` をファイルとして直接�
 
 1. 手元で `test/index.html` を開き、全機種が PASS になることを確認する
 2. コミットして push し、タグを付ける（例: `git tag v1.0.1 && git push origin v1.0.1`）
-3. 各機種リポジトリの `core.js` の `CORE_VERSION` を上げ、`test.html` と判別ページで動作を確認してから push する
+3. jsDelivr のキャッシュを温める。新しいタグのファイルは初回の取得だけ1ファイル数秒かかり、そのままだと最初に開いた人のページ表示が10秒以上遅れるため、先に一度取得しておく
+   ```bash
+   for f in checker.js checker.css judge.js validate.js testing.js; do curl -s -o /dev/null -w "$f %{http_code}\n" "https://cdn.jsdelivr.net/gh/tunhguod/slot-flag-checker-core@1.0.1/src/$f"; done
+   ```
+4. 各機種リポジトリの `core.js` の `CORE_VERSION` を上げ、`index.html` の `core.js?v=` の数字も上げる。`test.html` と判別ページで動作を確認してから push する
 
 jsDelivr はタグ単位でファイルを長期間キャッシュします。**一度公開したタグは付け直さず**、修正は新しいバージョンとして出してください。
