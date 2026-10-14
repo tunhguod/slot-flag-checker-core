@@ -3,7 +3,7 @@
 //   import { mountChecker } from '.../src/checker.js';
 //   await mountChecker(document.getElementById('app'), machine);
 
-import { findWorstCases, getPressedPosition, judge, mod, wrap } from './judge.js';
+import { collectDisplayVariants, formatPrizes, getPressedPosition, judge, mod, wrap } from './judge.js';
 import { validateMachine } from './validate.js';
 
 const SNAP_DURATION_MS = 200;
@@ -155,7 +155,7 @@ export async function mountChecker(root, machine) {
     return { group, list, odds, node: h('div', { class: 'sfc-info-box' }, [header, list]) };
   });
 
-  const prizes = h('span');
+  const prizes = h('div', { class: 'sfc-prizes' });
   const infoRow = h('div', { class: 'sfc-info-row' }, [
     h('div', { class: 'sfc-info-box sfc-info-box--grow' }, [h('span', { class: 'sfc-info-label', text: '小役' }), prizes]),
     ...(machine.links ?? []).map((link) => h('div', { class: 'sfc-info-box' }, [
@@ -200,7 +200,7 @@ export async function mountChecker(root, machine) {
       renderBadges(view, hits);
       if (view.odds) view.odds.textContent = odds ?? '-';
     });
-    prizes.textContent = result.prizes.length > 0 ? result.prizes.join(', ') : 'なし';
+    prizes.textContent = formatPrizes(result.prizes);
   }
 
   // ---------- 条件操作 ----------
@@ -287,15 +287,24 @@ export async function mountChecker(root, machine) {
 
   // ---------- 画面サイズへの追従 ----------
 
-  const worstCases = findWorstCases(machine);
+  const variants = collectDisplayVariants(machine);
 
-  // 該当数が変わっても高さが変わらないよう、最大該当時の高さを確保する
-  function reserveBadgeSpace() {
+  // 表示内容が変わっても画面の大きさが変わらないよう、表示されうる内容をすべて描いて測り、
+  // 一番高いものに合わせて各欄の高さを確保する（拡大率は確保後の大きさで決まる）
+  function reserveSpace() {
+    const fit = (node, contents, draw) => {
+      node.style.minHeight = '';
+      let max = 0;
+      for (const content of contents) {
+        draw(content);
+        max = Math.max(max, node.offsetHeight);
+      }
+      node.style.minHeight = `${max}px`;
+    };
     for (const view of groupViews) {
-      view.list.style.minHeight = '';
-      renderBadges(view, worstCases.get(view.group.id).hits);
-      view.list.style.minHeight = `${view.list.offsetHeight}px`;
+      fit(view.list, variants.groups.get(view.group.id), (hits) => renderBadges(view, hits));
     }
+    fit(prizes, variants.prizes, (text) => { prizes.textContent = text; });
   }
 
   function applyLayout(name) {
@@ -304,7 +313,7 @@ export async function mountChecker(root, machine) {
     const gap = parseFloat(getComputedStyle(app).columnGap);
     const top = reelWindow.offsetWidth + gap + controls.offsetWidth;
     app.style.width = `${name === 'tall' ? top : top + gap + WIDE_INFO_WIDTH}px`;
-    reserveBadgeSpace();
+    reserveSpace();
     return { width: app.offsetWidth, height: app.offsetHeight };
   }
 

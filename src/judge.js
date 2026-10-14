@@ -81,22 +81,29 @@ export function judge(machine, { order, setting, slip, position }) {
   return { groups, prizes };
 }
 
-// グループごとの最大該当数になる状態を求める（表示領域の確保に使う）
-export function findWorstCases(machine) {
-  const worst = new Map(machine.groups.map((group) => [group.id, null]));
+// 小役欄に表示する文字列
+export function formatPrizes(prizes) {
+  return prizes.length > 0 ? prizes.join(', ') : 'なし';
+}
+
+// 表示されうる内容をすべて集める（表示領域の確保に使う）
+// 割合の数字は表示幅が固定のため、設定は問わず、フラグ名の組み合わせごとに1つ集める
+export function collectDisplayVariants(machine) {
+  const groups = new Map(machine.groups.map((group) => [group.id, new Map()]));
+  const prizes = new Set();
   machine.pressOrders.forEach((_, order) => {
     for (let position = 1; position <= machine.reel.symbols; position++) {
       for (let slip = 0; slip <= machine.maxSlip; slip++) {
         const result = judge(machine, { order, setting: 0, slip, position });
         for (const { group, hits } of result.groups) {
-          const current = worst.get(group.id);
-          const length = hits.map((hit) => hit.name).join('').length;
-          if (!current || hits.length > current.count || (hits.length === current.count && length > current.length)) {
-            worst.set(group.id, { count: hits.length, length, hits });
-          }
+          groups.get(group.id).set(hits.map((hit) => hit.name).join('\n'), hits);
         }
+        prizes.add(formatPrizes(result.prizes));
       }
     }
   });
-  return worst;
+  return {
+    groups: new Map([...groups].map(([id, variants]) => [id, [...variants.values()]])),
+    prizes: [...prizes],
+  };
 }

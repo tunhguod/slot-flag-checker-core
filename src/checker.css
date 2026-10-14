@@ -288,6 +288,11 @@ html.sfc-page body {
 
 .sfc-info-box--grow {
   flex: 1;
+  min-width: 0; /* 中身が長くても幅を押し広げない */
+}
+
+.sfc-prizes {
+  overflow-wrap: anywhere;
 }
 
 .sfc-info-header {
