@@ -194,16 +194,8 @@ export async function mountChecker(root, machine) {
   ]);
 
   const side = h('div', { class: 'sfc-side' }, [positions]);
-  side.style.setProperty('--sfc-reel-height', `${viewHeight}px`); // 高さをリールに揃え、特徴をリールの下端に合わせる
-  for (const link of machine.links ?? []) {
-    side.append(h('div', { class: 'sfc-link' }, [
-      h('span', { class: 'sfc-control-label', text: link.label }),
-      h('a', { href: link.url, target: '_blank', rel: 'noopener', text: link.text }),
-    ]));
-  }
-
-  // 特徴（機種定義に notes があるときだけ）: リール横の空きに、ランプのように大きく表示する。
-  // 該当なしでも消灯したランプとして枠を残し、表示の有無でレイアウトが動かないようにする
+  // 特徴（機種定義に notes があるときだけ）: 停止・押下の下に表示する。
+  // 該当なしでも行の高さは残し、表示の有無でレイアウトが動かないようにする
   const noteValue = machine.notes ? h('div', { class: 'sfc-trait-value' }) : null;
   const notePanel = noteValue
     ? h('section', { class: 'sfc-trait', 'aria-label': '特徴', 'aria-live': 'polite' }, [
@@ -216,6 +208,14 @@ export async function mountChecker(root, machine) {
     if (!notePanel) return;
     noteValue.textContent = formatNote(note);
     notePanel.dataset.tone = note?.tone ?? '';
+  }
+
+  // リンク
+  for (const link of machine.links ?? []) {
+    side.append(h('div', { class: 'sfc-link' }, [
+      h('span', { class: 'sfc-control-label', text: link.label }),
+      h('a', { href: link.url, target: '_blank', rel: 'noopener', text: link.text }),
+    ]));
   }
 
   // 判別結果: グループごとのランプ盤（同じグループの同名フラグは1マスにまとめる）

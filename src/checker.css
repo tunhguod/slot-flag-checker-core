@@ -151,12 +151,10 @@ html.sfc-page body {
 
 .sfc-side {
   grid-area: side;
-  align-self: start;
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  height: calc(var(--sfc-reel-height, 320px) + 6px); /* リール窓（枠線込み）と同じ高さ */
   padding: 4px 0;
   font-size: 13px;
   line-height: 1.5;
@@ -226,35 +224,25 @@ html.sfc-page body {
   white-space: normal;
 }
 
-/* 特徴: リール横の空きの下端に置く大きなランプ。
-   該当なしは消灯したランプとして枠を残し、表示の有無でレイアウトが動かないようにする */
+/* 特徴: 停止・押下の下に置く。停止・押下の数字と同じ書体で、強調は文字色だけにする。
+   該当なしでも行の高さは残し、表示の有無でレイアウトが動かないようにする */
 .sfc-trait {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: auto;
 }
 
 .sfc-trait-value {
-  display: grid;
-  place-items: center;
-  height: 64px;
-  padding: 0 8px;
-  border-radius: 8px;
-  background: var(--sfc-lamp-off);
+  height: 1.45em;
   color: var(--sfc-ink-dim);
   font-family: var(--sfc-font-display);
-  font-size: 26px;
-  line-height: 1.45;
+  font-size: 22px;
+  line-height: 1.45; /* DotGothic16 は字面の上下に余白が大きいため、詰めると行からはみ出す */
   white-space: nowrap;
   overflow: hidden;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .sfc-trait[data-tone="strong"] .sfc-trait-value {
-  background: var(--sfc-led);
-  color: var(--sfc-ink-dark);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--sfc-led) 55%, transparent);
+  color: var(--sfc-led);
 }
 
 /* ---------- 判別結果: ランプ盤 ---------- */
