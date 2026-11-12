@@ -96,14 +96,28 @@ function createChoices(id, label, options, { variant = 'keys', initial = 0 } = {
     return input;
   });
   group.style.setProperty('--sfc-index', initial);
-  if (variant === 'switch') group.prepend(h('span', { class: 'sfc-choices-slider', 'aria-hidden': 'true' }));
+
+  const select = (index) => {
+    if (inputs[index].checked) return;
+    inputs[index].checked = true;
+    inputs[index].dispatchEvent(new Event('change'));
+  };
+
+  if (variant === 'switch') {
+    group.prepend(h('span', { class: 'sfc-choices-slider', 'aria-hidden': 'true' }));
+    // どちら側をタップしても切り替わるように、選択中の側をタップしたら次の選択肢へ進める
+    // （ラベルのクリックはラジオボタンへのクリックより先に届くので、この時点の checked は押す前の状態。
+    //   ラベルから転送されたラジオボタン自身のクリックも上がってくるが、それは二重に切り替えないよう無視する）
+    choices.forEach((choice, index) => {
+      choice.addEventListener('click', (e) => {
+        if (e.target === inputs[index] || !inputs[index].checked) return;
+        e.preventDefault();
+        select((index + 1) % inputs.length);
+      });
+    });
+  }
 
   if (variant === 'keys') {
-    const select = (index) => {
-      if (inputs[index].checked) return;
-      inputs[index].checked = true;
-      inputs[index].dispatchEvent(new Event('change'));
-    };
     // 指の位置に一番近いボタン（ボタン間のすき間で離しても、どちらかに決まる）
     const nearest = (clientX) => {
       let best = 0;
@@ -319,7 +333,15 @@ export async function mountChecker(root, machine) {
 
   slipChoices.onChange((index) => { state.slip = index; render(); });
   settingChoices.onChange((index) => { state.setting = index; render(); });
-  basisChoices.onChange((index) => { state.showsPressPosition = index === 1; render(); });
+  // 停止・押下を切り替えたら、両方の番号は変えずに、リールを表示する側の位置まで滑りコマ数ぶん動かす
+  // （停止 15番・押下 14番・1コマ滑りなら、押下に切り替えるとリールが 14番 へ戻る）
+  basisChoices.onChange((index) => {
+    const showsPressPosition = index === 1;
+    if (showsPressPosition === state.showsPressPosition) return;
+    state.showsPressPosition = showsPressPosition;
+    normalizeReelOffset();
+    moveReelTo(currentSymbolIndex() + (showsPressPosition ? -state.slip : state.slip), true);
+  });
   orderChoices?.onChange((index) => { state.order = index; render(); });
 
   // ---------- リール操作 ----------
