@@ -2,8 +2,9 @@
 //
 // 正解データは「状態キー → 表示内容」の JSON。
 //   状態キー: "押し順ID|設定のインデックス|滑りコマ数|押下位置"
-//   表示内容: "グループID=名前:割合:色,…|合算確率;…;P=小役"
-//     色は機種定義の colors の値（色なしは "-"）。合算確率は showOdds のグループだけ（該当なしは "-"）。
+//   表示内容: "グループID=名前:割合:色,…|合算確率;…;P=小役[;N=特徴:強さ]"
+//     色はランプの色コード（色なしは "-"）。合算確率は showOdds のグループだけ（該当なしは "-"）。
+//     N= は機種定義に notes があるときだけ付く（該当なしは "-"）。
 
 import { formatPrizes, judge } from './judge.js';
 
@@ -12,7 +13,9 @@ export function formatSnapshot(machine, result) {
     const items = hits.map((hit) => `${hit.name}:${hit.percent}:${hit.color ?? '-'}`).join(',');
     return `${group.id}=${items}${group.showOdds ? `|${odds ?? '-'}` : ''}`;
   });
-  return [...groups, `P=${formatPrizes(result.prizes)}`].join(';');
+  const parts = [...groups, `P=${formatPrizes(result.prizes)}`];
+  if (machine.notes) parts.push(`N=${result.note ? `${result.note.text}:${result.note.tone}` : '-'}`);
+  return parts.join(';');
 }
 
 export function stateKeys(machine) {

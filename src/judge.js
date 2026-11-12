@@ -60,6 +60,7 @@ export function formatOdds(machine, groupNum) {
 // 判定する
 // order: 押し順のインデックス, setting: 設定のインデックス, slip: 滑りコマ数, position: 押下位置 (1〜symbols)
 // 戻り値の割合（percent）は、全グループの該当フラグの置数合計に対する比率
+// note は machine.notes の戻り値（notes がない・該当しないときは null）
 export function judge(machine, { order, setting, slip, position }) {
   const pressOrder = machine.pressOrders[order];
   const flagRow = getMapRow(pressOrder.flagMap, machine, position);
@@ -88,7 +89,17 @@ export function judge(machine, { order, setting, slip, position }) {
   const prizeRow = getMapRow(pressOrder.prizeMap, machine, position);
   const prizes = [...new Set(pressOrder.prizeNames.filter((_, i) => prizeRow[i] === slip))];
 
-  return { groups, prizes };
+  const result = { groups, prizes };
+  result.note = machine.notes?.(result) ?? null;
+  return result;
+}
+
+// 特徴（machine.notes の戻り値）の表示の強さ
+export const NOTE_TONES = Object.freeze(['strong', 'dim']);
+
+// 特徴欄に表示する文字列（該当なしは空）
+export function formatNote(note) {
+  return note?.text ?? '';
 }
 
 // 小役欄に表示する文字列

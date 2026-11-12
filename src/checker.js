@@ -7,7 +7,7 @@
 // 画面は root 要素の大きさに収まるよう拡大縮小する。root には大きさを与えておくこと
 // （html, body, root の高さを 100% にするなど）。
 
-import { collectDisplayVariants, formatPrizes, getPressedPosition, judge, mod, wrap } from './judge.js';
+import { collectDisplayVariants, formatNote, formatPrizes, getPressedPosition, judge, mod, wrap } from './judge.js';
 import { validateMachine } from './validate.js';
 
 const SNAP_DURATION_MS = 200;
@@ -194,11 +194,28 @@ export async function mountChecker(root, machine) {
   ]);
 
   const side = h('div', { class: 'sfc-side' }, [positions]);
+  side.style.setProperty('--sfc-reel-height', `${viewHeight}px`); // 高さをリールに揃え、特徴をリールの下端に合わせる
   for (const link of machine.links ?? []) {
     side.append(h('div', { class: 'sfc-link' }, [
       h('span', { class: 'sfc-control-label', text: link.label }),
       h('a', { href: link.url, target: '_blank', rel: 'noopener', text: link.text }),
     ]));
+  }
+
+  // 特徴（機種定義に notes があるときだけ）: リール横の空きに、ランプのように大きく表示する。
+  // 該当なしでも消灯したランプとして枠を残し、表示の有無でレイアウトが動かないようにする
+  const noteValue = machine.notes ? h('div', { class: 'sfc-trait-value' }) : null;
+  const notePanel = noteValue
+    ? h('section', { class: 'sfc-trait', 'aria-label': '特徴', 'aria-live': 'polite' }, [
+      h('span', { class: 'sfc-control-label', text: '特徴' }),
+      noteValue,
+    ])
+    : null;
+  if (notePanel) side.append(notePanel);
+  function setNote(note) {
+    if (!notePanel) return;
+    noteValue.textContent = formatNote(note);
+    notePanel.dataset.tone = note?.tone ?? '';
   }
 
   // 判別結果: グループごとのランプ盤（同じグループの同名フラグは1マスにまとめる）
@@ -295,6 +312,7 @@ export async function mountChecker(root, machine) {
       if (view.odds) view.odds.textContent = odds ?? '-';
     });
     setPrizes(formatPrizes(result.prizes));
+    setNote(result.note);
   }
 
   // ---------- 条件操作 ----------

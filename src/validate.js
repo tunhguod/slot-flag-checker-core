@@ -1,7 +1,7 @@
 // 機種定義の検証
 // 行・列の数え間違いなどの編集ミスを、ページを開いた時点で気付けるようにする。
 
-import { LAMP_COLORS } from './judge.js';
+import { judge, LAMP_COLORS, NOTE_TONES } from './judge.js';
 
 // 制御表で「どの滑りコマ数でも停止しない」ことを表す値
 export const NEVER_STOPS = 5;
@@ -63,5 +63,33 @@ export function validateMachine(machine) {
     });
   });
 
+  if (machine.notes !== undefined && typeof machine.notes !== 'function') {
+    errors.push('notes: 関数ではない');
+  } else if (machine.notes && errors.length === 0) {
+    checkNotes(machine, errors);
+  }
+
   return { errors, warnings };
+}
+
+// notes の戻り値を全状態で確かめる（同じ間違いは1件にまとめる）
+function checkNotes(machine, errors) {
+  const found = new Set();
+  machine.pressOrders.forEach((order, orderIndex) => {
+    machine.settings.forEach((_, setting) => {
+      for (let slip = 0; slip <= machine.maxSlip; slip++) {
+        for (let position = 1; position <= machine.reel.symbols; position++) {
+          const { note } = judge(machine, { order: orderIndex, setting, slip, position });
+          if (note === null) continue;
+          let message = null;
+          if (typeof note?.text !== 'string' || note.text === '') message = 'text が空でない文字列ではない';
+          else if (!NOTE_TONES.includes(note.tone)) message = `tone "${note.tone}" はない（使える値: ${NOTE_TONES.join(', ')}）`;
+          if (message && !found.has(message)) {
+            found.add(message);
+            errors.push(`notes: ${message}（例: ${order.id}|${setting}|${slip}|${position}）`);
+          }
+        }
+      }
+    });
+  });
 }
