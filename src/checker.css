@@ -1,27 +1,26 @@
-/* slot-flag-checker-core の画面スタイル。クラス名は他と衝突しないよう sfc- で始める */
+/* slot-flag-checker-core の画面スタイル。クラス名は他と衝突しないよう sfc- で始める
+   方向性: 筐体のパネルを思わせるグラファイトの地に、成立候補のマスだけが小役の色で点灯するランプ盤。
+   目立たせるのはランプの点灯だけにし、ほかは控えめにする。 */
+
+@import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=DotGothic16&display=swap');
 
 :root {
-  --sfc-color-bg: #111;
-  --sfc-color-text: #fff;
-  --sfc-color-panel: rgba(255, 255, 255, 0.08);
-  --sfc-color-box: rgba(255, 255, 255, 0.1);
-  --sfc-color-button: #333;
-  --sfc-color-button-hover: #444;
-  --sfc-color-button-active: #555;
-  --sfc-color-switch-track: #ddd;
-  --sfc-color-switch-text: #333;
-  --sfc-color-switch-first: #4caf50;
-  --sfc-color-switch-other: #2196f3;
-  --sfc-color-link: #4fc3f7;
-  --sfc-color-link-hover: #81d4fa;
-  --sfc-color-focus: #ffd54f;
-  --sfc-color-badge-key: #555;
-  --sfc-color-badge-value: #6a6a6a;
-  --sfc-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  --sfc-radius: 8px;
-  --sfc-badge-height: 38px;
-  --sfc-badge-gap: 2px;
+  /* 地と灰色: 同じ青みの色相で、明るさだけを段階的に変える */
+  --sfc-ink-dark: #15161b;  /* 暗い文字（点灯したマス・選択中のボタンの上） */
+  --sfc-cabinet: #1d1f26;   /* 地（筐体のパネル） */
+  --sfc-panel: #262932;     /* 判別結果の盤 */
+  --sfc-lamp-off: #343844;  /* 消灯したマス・操作ボタンの地 */
+  --sfc-hover: #3e4250;     /* 操作ボタンにポインタを乗せたとき */
+  --sfc-ink-dim: #8d91a0;   /* 補助の文字・消灯したマスの文字 */
+  /* 明るい色: 文字と、点灯（色の指定がないマス・選択中のボタン）を兼ねる */
+  --sfc-ink: #ece8df;
+  /* アンバー: 数字の表示（合算確率・コマ番号）とキーボード操作時の枠。ランプの黄色とは色相を分けている */
+  --sfc-led: #ffb000;
+  /* ランプの色は judge.js の LAMP_COLORS で一括管理する */
+  --sfc-font-body: 'BIZ UDPGothic', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
+  --sfc-font-display: 'DotGothic16', 'BIZ UDPGothic', monospace;
   --sfc-gap: 8px;
+  color-scheme: dark;
 }
 
 .sfc-root,
@@ -41,31 +40,41 @@ html.sfc-page body {
 }
 
 html.sfc-page body {
-  background: var(--sfc-color-bg);
-  color: var(--sfc-color-text);
-  font-family: 'Segoe UI', sans-serif;
+  background: var(--sfc-cabinet);
+  color: var(--sfc-ink);
+  font-family: var(--sfc-font-body);
+}
+
+/* 画面は root の大きさに収まるよう拡大縮小する */
+.sfc-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--sfc-cabinet);
+  color: var(--sfc-ink);
+  font-family: var(--sfc-font-body);
 }
 
 .sfc-root a {
-  color: var(--sfc-color-link);
-  text-decoration: underline;
-  transition: color 0.2s;
+  color: var(--sfc-ink);
+  text-decoration-color: var(--sfc-ink-dim);
+  text-underline-offset: 3px;
 }
 
 .sfc-root a:hover {
-  color: var(--sfc-color-link-hover);
+  text-decoration-color: var(--sfc-ink);
 }
 
 .sfc-root :focus-visible {
-  outline: 2px solid var(--sfc-color-focus);
+  outline: 2px solid var(--sfc-led);
   outline-offset: 2px;
 }
 
 /* ---------- レイアウト ----------
-   幅と拡大率 (--sfc-scale) は checker.js の fitToViewport で設定する。
-   sfc-layout-tall: 縦長画面向け（リール＋条件の下に判別結果）
-   sfc-layout-wide: 横長画面向け（リール・条件・判別結果を横一列）
-*/
+   幅と拡大率 (--sfc-scale) は checker.js の fit で設定する。
+   sfc-layout-tall: 縦長画面向け。上から 判別結果 → リール → 操作（操作を親指の届く下側に置く）
+   sfc-layout-wide: 横長画面向け。リール・位置・（判別結果＋操作）を横一列 */
 
 .sfc-app {
   position: absolute;
@@ -78,26 +87,44 @@ html.sfc-page body {
 
 .sfc-app.sfc-layout-tall {
   grid-template-columns: auto 1fr;
-  grid-template-rows: auto 1fr;
   grid-template-areas:
-    "reel controls"
-    "info info";
+    "results results"
+    "reel side"
+    "controls controls"
+    "note note";
 }
 
+.sfc-layout-tall .sfc-main {
+  display: contents;
+}
+
+.sfc-layout-tall .sfc-results { grid-area: results; }
+.sfc-layout-tall .sfc-controls { grid-area: controls; }
+
 .sfc-app.sfc-layout-wide {
-  grid-template-columns: auto auto 1fr;
-  grid-template-areas: "reel controls info";
+  grid-template-columns: auto 150px 1fr;
+  grid-template-areas:
+    "reel side main"
+    "note note note";
+}
+
+.sfc-layout-wide .sfc-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* ---------- リール ---------- */
 
 .sfc-reel-window {
   grid-area: reel;
+  align-self: start;
   /* 表示領域 + 枠線 3px × 2。表示領域の大きさは機種定義から設定する */
   width: calc(var(--sfc-reel-width, 180px) + 6px);
   height: calc(var(--sfc-reel-height, 320px) + 6px);
   overflow: hidden;
-  border: 3px solid #fff;
+  border: 3px solid var(--sfc-ink);
   border-radius: 10px;
   background: black;
   touch-action: none;
@@ -120,121 +147,228 @@ html.sfc-page body {
   outline-offset: -4px;
 }
 
-/* ---------- 条件パネル ---------- */
+/* ---------- リール横: 停止位置・押下位置・リンク ---------- */
 
-.sfc-controls {
-  grid-area: controls;
+.sfc-side {
+  grid-area: side;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sfc-positions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sfc-position {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 3px solid transparent;
+  color: var(--sfc-ink-dim);
+}
+
+/* リールを合わせている方の位置 */
+.sfc-position.is-aligned {
+  border-left-color: var(--sfc-led);
+  color: var(--sfc-ink);
+}
+
+.sfc-position-label {
+  font-size: 13px;
+}
+
+.sfc-position-value {
+  font-family: var(--sfc-font-display);
+  font-size: 26px;
+  line-height: 1.45; /* DotGothic16 は字面の上下に余白が大きいため、詰めると行からはみ出す */
+  font-variant-numeric: tabular-nums;
+}
+
+.sfc-position.is-aligned .sfc-position-value {
+  color: var(--sfc-led);
+}
+
+.sfc-position-arrow {
+  padding-left: 11px;
+  color: var(--sfc-ink-dim);
+  font-size: 12px;
+}
+
+.sfc-position-arrow::before {
+  content: '↑ ';
+}
+
+.sfc-control-label {
+  color: var(--sfc-ink-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sfc-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* リンクの見出しは出典名などで長くなるため折り返す */
+.sfc-link .sfc-control-label {
+  white-space: normal;
+}
+
+/* ---------- 判別結果: ランプ盤 ---------- */
+
+.sfc-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--sfc-panel);
+  border-radius: 12px;
+}
+
+.sfc-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.sfc-group-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sfc-odds-box {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.sfc-odds-label {
+  color: var(--sfc-ink-dim);
+  font-size: 12px;
+}
+
+.sfc-odds {
+  min-width: 5.5em;
+  color: var(--sfc-led);
+  font-family: var(--sfc-font-display);
+  font-size: 20px;
+  line-height: 1.45;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sfc-lamps {
+  display: grid;
+  grid-template-columns: repeat(var(--sfc-columns, 10), minmax(0, 1fr));
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sfc-lamp {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  width: 240px;
-  padding: 12px 20px;
-  background: var(--sfc-color-panel);
-  border-radius: var(--sfc-radius);
-  box-shadow: var(--sfc-shadow);
+  justify-content: center;
+  height: 38px;
+  border-radius: 4px;
+  background: var(--sfc-lamp-off);
+  color: var(--sfc-ink-dim);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sfc-lamp-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  opacity: 0.7;
+}
+
+.sfc-lamp-percent {
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sfc-lamp-percent small {
+  font-size: 0.75em;
+}
+
+/* 点灯: 成立候補のマス。色は重複する小役の色（指定がなければ白いランプ） */
+.sfc-lamp.is-on {
+  background: var(--sfc-lamp, var(--sfc-ink));
+  color: var(--sfc-lamp-ink, var(--sfc-ink-dark));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--sfc-lamp, var(--sfc-ink)) 55%, transparent);
+}
+
+.sfc-lamp.is-on .sfc-lamp-name {
+  opacity: 1;
+}
+
+.sfc-prizes {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.sfc-prizes-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+/* 絵文字は高さ1文字分の箱に収め、行の高さ・基準線を動かさない */
+.sfc-emoji {
+  display: inline-block;
+  height: 1em;
+  line-height: 1;
+  vertical-align: -0.1em;
+}
+
+/* ---------- 操作 ---------- */
+
+.sfc-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   user-select: none;
   -webkit-user-select: none;
 }
 
-.sfc-layout-tall .sfc-controls {
-  width: 178px;
-  padding: 12px 6px;
-}
-
 .sfc-control {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 2.6em 1fr;
   align-items: center;
-  gap: 6px;
-  width: 100%;
+  gap: 8px;
 }
 
-.sfc-control-label {
-  font-weight: bold;
-  font-size: 15px;
-  opacity: 0.8;
+.sfc-switches {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-.sfc-stepper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sfc-stepper-value {
-  min-width: 20px;
-  text-align: center;
-  font-size: 16px;
-}
-
-.sfc-stepper-button {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  background: var(--sfc-color-button);
-  color: var(--sfc-color-text);
-  border: none;
-  border-radius: 4px;
-  font-size: 15px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.sfc-stepper-button:hover {
-  background: var(--sfc-color-button-hover);
-}
-
-.sfc-stepper-button:active {
-  background: var(--sfc-color-button-active);
-}
-
-/* ---------- 選択スイッチ（2択以上） ---------- */
-
-.sfc-segmented {
-  position: relative;
-  display: flex;
-  width: 100%;
-  height: 30px;
-  padding: 3px;
-  background-color: var(--sfc-color-switch-track);
-  border-radius: 15px;
-  box-shadow: inset 0 0 3px #999;
-}
-
-.sfc-segmented:has(input:focus-visible) {
-  outline: 2px solid var(--sfc-color-focus);
-  outline-offset: 2px;
-}
-
-.sfc-segmented-slider {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: calc((100% - 6px) / var(--sfc-count, 2));
-  height: calc(100% - 6px);
-  background-color: var(--sfc-color-switch-other);
-  border-radius: 12px;
-  transform: translateX(calc(100% * var(--sfc-index, 0)));
-  transition: transform 0.3s ease, background-color 0.3s ease;
-}
-
-.sfc-segmented[data-first] .sfc-segmented-slider {
-  background-color: var(--sfc-color-switch-first);
-}
-
-.sfc-segment {
-  position: relative;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+.sfc-switches .sfc-control {
+  grid-template-columns: auto 1fr;
 }
 
 /* 見た目は隠すが、キーボード操作・読み上げの対象には残す */
-.sfc-segment input {
+.sfc-choice input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -243,120 +377,94 @@ html.sfc-page body {
   pointer-events: none;
 }
 
-.sfc-segment span {
-  font-size: 11px;
-  font-weight: bold;
-  white-space: nowrap;
-  color: var(--sfc-color-switch-text);
-  transition: color 0.3s ease;
+/* 1タップで選ぶボタン列（滑り・設定） */
+.sfc-choices--keys {
+  display: grid;
+  grid-template-columns: repeat(var(--sfc-count), minmax(0, 1fr));
+  gap: 4px;
+  touch-action: none; /* 指を左右に動かして選ぶ操作を、ブラウザのスクロールや拡大に取られないようにする */
 }
 
-.sfc-segment input:checked + span {
-  color: var(--sfc-color-text);
+.sfc-choices--keys .sfc-choice {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 38px;
+  border-radius: 6px;
+  background: var(--sfc-lamp-off);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
-/* ---------- 判別結果 ---------- */
+.sfc-choices--keys .sfc-choice:hover {
+  background: var(--sfc-hover);
+}
 
-.sfc-info-area {
-  grid-area: info;
+.sfc-choices--keys .sfc-choice:has(input:checked) {
+  background: var(--sfc-ink);
+  color: var(--sfc-ink-dark);
+  font-weight: 700;
+}
+
+.sfc-choices--keys .sfc-choice:has(input:focus-visible) {
+  outline: 2px solid var(--sfc-led);
+  outline-offset: 2px;
+}
+
+/* 2択の切り替えスイッチ（押し順・リール位置） */
+.sfc-choices--switch {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 6px;
-  min-width: 0;
+  height: 38px;
+  padding: 3px;
+  border-radius: 19px;
+  background: var(--sfc-lamp-off);
 }
 
-.sfc-info-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.sfc-choices--switch:has(input:focus-visible) {
+  outline: 2px solid var(--sfc-led);
+  outline-offset: 2px;
 }
 
-.sfc-info-row {
-  display: flex;
-  gap: 6px;
+.sfc-choices-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--sfc-count, 2));
+  height: calc(100% - 6px);
+  border-radius: 16px;
+  background: var(--sfc-ink);
+  transform: translateX(calc(100% * var(--sfc-index, 0)));
+  transition: transform 0.2s ease;
 }
 
-.sfc-info-box {
-  padding: 8px 12px;
-  background: var(--sfc-color-box);
-  border-radius: var(--sfc-radius);
-  box-shadow: var(--sfc-shadow);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.sfc-info-box--grow {
+.sfc-choices--switch .sfc-choice {
+  position: relative;
   flex: 1;
-  min-width: 0; /* 中身が長くても幅を押し広げない */
-}
-
-.sfc-prizes {
-  overflow-wrap: anywhere;
-}
-
-.sfc-info-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 4px;
-}
-
-.sfc-info-total {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.sfc-info-label {
-  display: block;
-  font-weight: bold;
+  display: grid;
+  place-items: center;
   font-size: 13px;
-  opacity: 0.7;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.sfc-info-box > .sfc-info-label {
-  margin-bottom: 4px;
-}
-
-/* 該当数が変わっても高さが変わらないよう、最大該当時の高さを checker.js が min-height に設定する */
-.sfc-badge-list {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: var(--sfc-badge-gap);
-  min-height: var(--sfc-badge-height);
-}
-
-.sfc-badge {
-  display: inline-flex;
-  flex-direction: column;
-  height: var(--sfc-badge-height);
-  line-height: 1;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.sfc-badge-key {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 5px;
-  background-color: var(--sfc-color-badge-key);
-}
-
-.sfc-badge-value {
-  width: 2.5em;
-  padding: 2px 0;
-  background-color: var(--sfc-color-badge-value);
-  font-family: monospace;
-  text-align: center;
+.sfc-choices--switch .sfc-choice:has(input:checked) {
+  color: var(--sfc-ink-dark);
+  font-weight: 700;
 }
 
 .sfc-note {
-  align-self: flex-end;
+  grid-area: note;
+  justify-self: end;
+  color: var(--sfc-ink-dim);
   font-size: 11px;
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sfc-root * {
+    transition: none !important;
+  }
 }

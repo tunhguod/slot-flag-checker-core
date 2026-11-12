@@ -1,15 +1,23 @@
 // 機種定義から判別画面を組み立てる
 //
 //   import { mountChecker } from '.../src/checker.js';
-//   await mountChecker(document.getElementById('app'), machine);
+//   const checker = await mountChecker(document.getElementById('app'), machine);
+//   checker.destroy(); // 別の機種に切り替えるときなど
+//
+// 画面は root 要素の大きさに収まるよう拡大縮小する。root には大きさを与えておくこと
+// （html, body, root の高さを 100% にするなど）。
 
 import { collectDisplayVariants, formatPrizes, getPressedPosition, judge, mod, wrap } from './judge.js';
 import { validateMachine } from './validate.js';
 
 const SNAP_DURATION_MS = 200;
-const VIEWPORT_MARGIN = 8; // 画面端との余白 (px)
-const MAX_SCALE = 1.5;     // 大画面で拡大しすぎないための上限
-const WIDE_INFO_WIDTH = 378; // 横長レイアウトでの判別結果欄の幅 (px)
+const FIT_MARGIN = 8;    // root の端との余白 (px)
+const MAX_SCALE = 1.5;   // 大画面で拡大しすぎないための上限
+const GAP = 8;           // 欄どうしの間隔 (px)。checker.css の --sfc-gap と揃える
+const TALL_SIDE_WIDTH = 178; // 縦長レイアウトでリール横の欄の幅 (px)
+const WIDE_SIDE_WIDTH = 150; // 横長レイアウトでリール横の欄の幅 (px)
+const WIDE_MAIN_WIDTH = 378; // 横長レイアウトで判別結果・操作の列の幅 (px)
+const LAMP_COLUMNS = 10;     // ランプ盤の1行のマス数
 const LAYOUTS = ['tall', 'wide'];
 
 let uid = 0;
@@ -45,47 +53,89 @@ async function loadImage(src) {
   return { src: img.src, width: img.naturalWidth, height: img.naturalHeight };
 }
 
+// checker.css の --sfc-ink（明るい文字）と --sfc-ink-dark（暗い文字）と揃える
+const LAMP_INK_LIGHT = '#ece8df';
+const LAMP_INK_DARK = '#15161b';
+
+// 相対輝度 (0〜1)
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// 点灯したマスの文字色: 白と黒のうち、背景とのコントラスト比が高い方
+function lampInk(hex) {
+  const background = luminance(hex) + 0.05;
+  const light = (luminance(LAMP_INK_LIGHT) + 0.05) / background;
+  const dark = background / (luminance(LAMP_INK_DARK) + 0.05);
+  return light >= dark ? LAMP_INK_LIGHT : LAMP_INK_DARK;
+}
+
 // ---------- 部品 ----------
 
-function createStepper(id, label, decreaseLabel, increaseLabel) {
+// 1タップで選ぶボタン列（ラジオボタン）
+// keys: 滑り・設定のボタン列。タップに加え、指を左右に動かすと指の下のボタンが選ばれる
+// switch: 2択の切り替えスイッチ
+function createChoices(id, label, options, { variant = 'keys', initial = 0 } = {}) {
   const labelId = `${id}-label`;
-  const value = h('output', { class: 'sfc-stepper-value', 'aria-live': 'polite' });
-  const decrease = h('button', { type: 'button', class: 'sfc-stepper-button', 'aria-label': decreaseLabel, text: '−' });
-  const increase = h('button', { type: 'button', class: 'sfc-stepper-button', 'aria-label': increaseLabel, text: '＋' });
-  const node = h('div', { class: 'sfc-control' }, [
-    h('span', { class: 'sfc-control-label', id: labelId, text: label }),
-    h('div', { class: 'sfc-stepper', role: 'group', 'aria-labelledby': labelId }, [decrease, value, increase]),
-  ]);
-  return { node, value, decrease, increase };
-}
-
-function createSegmented(id, label, options, onChange) {
-  const labelId = `${id}-label`;
-  const group = h('div', { class: 'sfc-segmented', role: 'radiogroup', 'aria-labelledby': labelId });
+  const group = h('div', { class: `sfc-choices sfc-choices--${variant}`, role: 'radiogroup', 'aria-labelledby': labelId });
   group.style.setProperty('--sfc-count', options.length);
-  const slider = h('span', { class: 'sfc-segmented-slider' });
-  group.append(slider);
-  const select = (index) => {
-    group.style.setProperty('--sfc-index', index);
-    group.toggleAttribute('data-first', index === 0);
-  };
-  options.forEach((text, index) => {
-    const input = h('input', { type: 'radio', name: id, value: String(index), checked: index === 0 });
+  const listeners = [];
+  const choices = [];
+  const inputs = options.map((text, index) => {
+    const input = h('input', { type: 'radio', name: id, id: `${id}-${index}`, value: String(index), checked: index === initial });
     input.addEventListener('change', () => {
       if (!input.checked) return;
-      select(index);
-      onChange(index);
+      group.style.setProperty('--sfc-index', index);
+      listeners.forEach((listener) => listener(index));
     });
-    group.append(h('label', { class: 'sfc-segment' }, [input, h('span', { text })]));
+    const choice = h('label', { class: 'sfc-choice', for: `${id}-${index}` }, [input, h('span', { text: String(text) })]);
+    choices.push(choice);
+    group.append(choice);
+    return input;
   });
-  select(0);
-  return h('div', { class: 'sfc-control' }, [h('span', { class: 'sfc-control-label', id: labelId, text: label }), group]);
-}
+  group.style.setProperty('--sfc-index', initial);
+  if (variant === 'switch') group.prepend(h('span', { class: 'sfc-choices-slider', 'aria-hidden': 'true' }));
 
-function createBadge({ name, percent, color }) {
-  const key = h('div', { class: 'sfc-badge-key', text: name });
-  if (color) key.style.backgroundColor = color;
-  return h('div', { class: 'sfc-badge' }, [key, h('div', { class: 'sfc-badge-value', text: `${percent}%` })]);
+  if (variant === 'keys') {
+    const select = (index) => {
+      if (inputs[index].checked) return;
+      inputs[index].checked = true;
+      inputs[index].dispatchEvent(new Event('change'));
+    };
+    // 指の位置に一番近いボタン（ボタン間のすき間で離しても、どちらかに決まる）
+    const nearest = (clientX) => {
+      let best = 0;
+      let bestDistance = Infinity;
+      choices.forEach((choice, index) => {
+        const rect = choice.getBoundingClientRect();
+        const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+        if (distance < bestDistance) {
+          best = index;
+          bestDistance = distance;
+        }
+      });
+      return best;
+    };
+    // 押した時点で指の下のボタンを選び、そのまま左右に動かすと選択が追従する（タップはこの押した時点の選択になる）
+    let dragging = false;
+    group.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault(); // 文字の選択やフォーカス移動で操作が途切れないようにする
+      dragging = true;
+      select(nearest(e.clientX));
+      group.setPointerCapture(e.pointerId);
+    });
+    group.addEventListener('pointermove', (e) => {
+      if (dragging) select(nearest(e.clientX));
+    });
+    const end = () => { dragging = false; };
+    group.addEventListener('pointerup', end);
+    group.addEventListener('pointercancel', end);
+  }
+  const node = h('div', { class: 'sfc-control' }, [h('span', { class: 'sfc-control-label', id: labelId, text: label }), group]);
+  return { node, inputs, onChange: (listener) => listeners.push(listener) };
 }
 
 // ---------- 本体 ----------
@@ -101,7 +151,7 @@ export async function mountChecker(root, machine) {
   ]);
 
   const id = `sfc${++uid}`;
-  const { symbols, viewHeight, offsetY: reelOffsetBase } = machine.reel;
+  const { symbols, viewHeight, offsetY: reelOffsetBase, referenceRow } = machine.reel;
   const reelImageHeight = images[0].height;
   const symbolHeight = reelImageHeight / symbols;
 
@@ -118,6 +168,7 @@ export async function mountChecker(root, machine) {
   document.documentElement.classList.add('sfc-page');
   root.classList.add('sfc-root');
 
+  // リール
   const reel = h('div', {
     class: 'sfc-reel',
     tabindex: '0',
@@ -130,91 +181,128 @@ export async function mountChecker(root, machine) {
   reelWindow.style.setProperty('--sfc-reel-width', `${images[0].width}px`);
   reelWindow.style.setProperty('--sfc-reel-height', `${viewHeight}px`);
 
-  const slip = createStepper(`${id}-slip`, '滑りコマ数', '滑りコマ数を減らす', '滑りコマ数を増やす');
-  const setting = createStepper(`${id}-setting`, '設定', '設定を下げる', '設定を上げる');
-  const controls = h('section', { class: 'sfc-controls', 'aria-label': '条件' }, [
-    slip.node,
-    setting.node,
-    createSegmented(`${id}-basis`, 'リールの位置', ['リール停止時', 'ボタン押下時'], (index) => {
-      state.showsPressPosition = index === 1;
-      render();
-    }),
+  // リール横: 停止位置と押下位置（制御表のコマ番号）
+  const stopValue = h('span', { class: 'sfc-position-value' });
+  const pressValue = h('span', { class: 'sfc-position-value' });
+  const slipValue = h('span', { class: 'sfc-position-slip' });
+  const stopRow = h('div', { class: 'sfc-position' }, [h('span', { class: 'sfc-position-label', text: '停止' }), stopValue]);
+  const pressRow = h('div', { class: 'sfc-position' }, [h('span', { class: 'sfc-position-label', text: '押下' }), pressValue]);
+  const positions = h('section', { class: 'sfc-positions', 'aria-label': 'リール位置' }, [
+    stopRow,
+    h('div', { class: 'sfc-position-arrow', 'aria-hidden': 'true' }, [slipValue]),
+    pressRow,
   ]);
-  if (machine.pressOrders.length > 1) {
-    controls.append(createSegmented(`${id}-order`, '押し順', machine.pressOrders.map((order) => order.label), (index) => {
-      state.order = index;
-      render();
-    }));
-  }
 
-  const groupViews = machine.groups.map((group) => {
-    const list = h('div', { class: 'sfc-badge-list' });
-    const odds = group.showOdds ? h('span') : null;
-    const header = h('div', { class: 'sfc-info-header' }, [h('span', { class: 'sfc-info-label', text: group.label })]);
-    if (odds) header.append(h('span', { class: 'sfc-info-total' }, [h('span', { class: 'sfc-info-label', text: 'フラグ合算' }), odds]));
-    return { group, list, odds, node: h('div', { class: 'sfc-info-box' }, [header, list]) };
-  });
-
-  const prizes = h('div', { class: 'sfc-prizes' });
-  const infoRow = h('div', { class: 'sfc-info-row' }, [
-    h('div', { class: 'sfc-info-box sfc-info-box--grow' }, [h('span', { class: 'sfc-info-label', text: '小役' }), prizes]),
-    ...(machine.links ?? []).map((link) => h('div', { class: 'sfc-info-box' }, [
-      h('span', { class: 'sfc-info-label', text: link.label }),
+  const side = h('div', { class: 'sfc-side' }, [positions]);
+  for (const link of machine.links ?? []) {
+    side.append(h('div', { class: 'sfc-link' }, [
+      h('span', { class: 'sfc-control-label', text: link.label }),
       h('a', { href: link.url, target: '_blank', rel: 'noopener', text: link.text }),
-    ])),
-  ]);
-
-  const infoArea = h('div', { class: 'sfc-info-area' }, [
-    h('section', { class: 'sfc-info-panel', 'aria-label': '判別結果', 'aria-live': 'polite' }, [
-      ...groupViews.map((view) => view.node),
-      infoRow,
-    ]),
-  ]);
-  if (machine.contact) {
-    infoArea.append(h('footer', { class: 'sfc-note' }, [
-      '(不具合報告/ご質問等は ',
-      h('a', { href: machine.contact.url, target: '_blank', rel: 'noopener', text: machine.contact.text }),
-      ' 宛にお願いします)',
     ]));
   }
 
-  const app = h('main', { class: 'sfc-app' }, [reelWindow, controls, infoArea]);
+  // 判別結果: グループごとのランプ盤（同じグループの同名フラグは1マスにまとめる）
+  const groupViews = machine.groups.map((group) => {
+    const names = [...new Set(machine.flags.filter((flag) => flag.group === group.id).map((flag) => flag.name))];
+    const lamps = new Map(names.map((name) => {
+      const percent = h('span', { class: 'sfc-lamp-percent' });
+      const node = h('li', { class: 'sfc-lamp' }, [h('span', { class: 'sfc-lamp-name', text: name }), percent]);
+      return [name, { node, percent }];
+    }));
+    const odds = group.showOdds ? h('span', { class: 'sfc-odds' }) : null;
+    const header = h('div', { class: 'sfc-group-header' }, [h('h2', { class: 'sfc-group-label', text: group.label })]);
+    if (odds) header.append(h('span', { class: 'sfc-odds-box' }, [h('span', { class: 'sfc-odds-label', text: '合算' }), odds]));
+    // どのグループもマスの大きさを揃える（マスが少ないグループは左詰め）
+    const grid = h('ul', { class: 'sfc-lamps' }, [...lamps.values()].map((lamp) => lamp.node));
+    grid.style.setProperty('--sfc-columns', LAMP_COLUMNS);
+    return { group, lamps, odds, node: h('section', { class: 'sfc-group' }, [header, grid]) };
+  });
+
+  const prizes = h('div', { class: 'sfc-prizes-value' });
+
+  // 小役の文字列を表示する。絵文字は書体が違い上下の余白も違うため、そのままだと行の基準線が動き、
+  // 絵文字を含むかどうかで行が上下にずれる。絵文字を高さ1文字分の箱に入れて、行の高さに影響させない
+  function setPrizes(text) {
+    prizes.replaceChildren(...text.split(/(\p{Extended_Pictographic}\uFE0F?)/u)
+      .filter(Boolean)
+      .map((part) => (/\p{Extended_Pictographic}/u.test(part) ? h('span', { class: 'sfc-emoji', text: part }) : part)));
+  }
+  const results = h('div', { class: 'sfc-results', 'aria-live': 'polite' }, [
+    ...groupViews.map((view) => view.node),
+    h('div', { class: 'sfc-prizes' }, [h('span', { class: 'sfc-group-label', text: '小役' }), prizes]),
+  ]);
+
+  // 操作: 親指で届くよう画面下にまとめる
+  const slipChoices = createChoices(`${id}-slip`, '滑り', Array.from({ length: machine.maxSlip + 1 }, (_, i) => i));
+  const settingChoices = createChoices(`${id}-setting`, '設定', machine.settings);
+  const basisChoices = createChoices(`${id}-basis`, 'リールの位置', ['停止', '押下'], { variant: 'switch' });
+  const switches = [basisChoices.node];
+  let orderChoices = null;
+  if (machine.pressOrders.length > 1) {
+    orderChoices = createChoices(`${id}-order`, '押し順', machine.pressOrders.map((order) => order.label), { variant: 'switch' });
+    switches.unshift(orderChoices.node);
+  }
+  const controls = h('section', { class: 'sfc-controls', 'aria-label': '条件' }, [
+    slipChoices.node,
+    settingChoices.node,
+    h('div', { class: 'sfc-switches' }, switches),
+  ]);
+
+  const main = h('div', { class: 'sfc-main' }, [results, controls]);
+  const app = h('main', { class: 'sfc-app' }, [reelWindow, side, main]);
+  if (machine.contact) {
+    app.append(h('footer', { class: 'sfc-note' }, [
+      '不具合報告・ご質問は ',
+      h('a', { href: machine.contact.url, target: '_blank', rel: 'noopener', text: machine.contact.text }),
+      ' までお願いします',
+    ]));
+  }
   root.replaceChildren(app);
 
   // ---------- 描画 ----------
 
-  function renderBadges(view, hits) {
-    view.list.replaceChildren(...hits.map(createBadge));
+  function setLamp(lamp, hit) {
+    lamp.node.classList.toggle('is-on', Boolean(hit));
+    // 「100%」がマスに収まるよう、% 記号は小さく表示する
+    lamp.percent.replaceChildren(...(hit ? [hit.percent, h('small', { text: '%' })] : []));
+    if (hit?.color) {
+      lamp.node.style.setProperty('--sfc-lamp', hit.color);
+      lamp.node.style.setProperty('--sfc-lamp-ink', lampInk(hit.color));
+    } else {
+      lamp.node.style.removeProperty('--sfc-lamp');
+      lamp.node.style.removeProperty('--sfc-lamp-ink');
+    }
   }
 
   function render() {
-    slip.value.textContent = state.slip;
-    setting.value.textContent = machine.settings[state.setting];
     reel.style.backgroundImage = `url("${images[state.order].src}")`;
     reel.setAttribute('aria-valuenow', state.reelPosition);
 
-    const position = getPressedPosition(machine, state);
-    const result = judge(machine, { order: state.order, setting: state.setting, slip: state.slip, position });
+    const pressed = getPressedPosition(machine, state);
+    const stopped = wrap(pressed + state.slip, 1, symbols);
+    stopValue.textContent = `${stopped}番`;
+    pressValue.textContent = `${pressed}番`;
+    slipValue.textContent = `${state.slip}コマ滑り`;
+    // リールをどちらの位置に合わせているか
+    stopRow.classList.toggle('is-aligned', !state.showsPressPosition);
+    pressRow.classList.toggle('is-aligned', state.showsPressPosition);
+
+    const result = judge(machine, { order: state.order, setting: state.setting, slip: state.slip, position: pressed });
     result.groups.forEach(({ hits, odds }, i) => {
       const view = groupViews[i];
-      renderBadges(view, hits);
+      const byName = new Map(hits.map((hit) => [hit.name, hit]));
+      for (const [name, lamp] of view.lamps) setLamp(lamp, byName.get(name));
       if (view.odds) view.odds.textContent = odds ?? '-';
     });
-    prizes.textContent = formatPrizes(result.prizes);
+    setPrizes(formatPrizes(result.prizes));
   }
 
   // ---------- 条件操作 ----------
 
-  function bindStepper(stepper, key, max) {
-    const step = (delta) => {
-      state[key] = wrap(state[key] + delta, 0, max);
-      render();
-    };
-    stepper.decrease.addEventListener('click', () => step(-1));
-    stepper.increase.addEventListener('click', () => step(1));
-  }
-  bindStepper(slip, 'slip', machine.maxSlip);
-  bindStepper(setting, 'setting', machine.settings.length - 1);
+  slipChoices.onChange((index) => { state.slip = index; render(); });
+  settingChoices.onChange((index) => { state.setting = index; render(); });
+  basisChoices.onChange((index) => { state.showsPressPosition = index === 1; render(); });
+  orderChoices?.onChange((index) => { state.order = index; render(); });
 
   // ---------- リール操作 ----------
 
@@ -289,46 +377,39 @@ export async function mountChecker(root, machine) {
 
   const variants = collectDisplayVariants(machine);
 
-  // 表示内容が変わっても画面の大きさが変わらないよう、表示されうる内容をすべて描いて測り、
-  // 一番高いものに合わせて各欄の高さを確保する（拡大率は確保後の大きさで決まる）
+  // 小役の文字列が変わっても高さが変わらないよう、表示されうる文字列をすべて描いて測り、
+  // 一番高いものに合わせて欄の高さを確保する（ランプ盤はマスが固定なので大きさが変わらない）
   function reserveSpace() {
-    const fit = (node, contents, draw) => {
-      node.style.minHeight = '';
-      let max = 0;
-      for (const content of contents) {
-        draw(content);
-        max = Math.max(max, node.offsetHeight);
-      }
-      node.style.minHeight = `${max}px`;
-    };
-    for (const view of groupViews) {
-      fit(view.list, variants.groups.get(view.group.id), (hits) => renderBadges(view, hits));
+    prizes.style.minHeight = '';
+    let max = 0;
+    for (const text of variants.prizes) {
+      setPrizes(text);
+      max = Math.max(max, prizes.offsetHeight);
     }
-    fit(prizes, variants.prizes, (text) => { prizes.textContent = text; });
+    prizes.style.minHeight = `${max}px`;
   }
 
   function applyLayout(name) {
     app.classList.remove(...LAYOUTS.map((layout) => `sfc-layout-${layout}`));
     app.classList.add(`sfc-layout-${name}`);
-    const gap = parseFloat(getComputedStyle(app).columnGap);
-    const top = reelWindow.offsetWidth + gap + controls.offsetWidth;
-    app.style.width = `${name === 'tall' ? top : top + gap + WIDE_INFO_WIDTH}px`;
+    const reelWidth = reelWindow.offsetWidth;
+    app.style.width = `${name === 'tall'
+      ? reelWidth + GAP + TALL_SIDE_WIDTH
+      : reelWidth + GAP + WIDE_SIDE_WIDTH + GAP + WIDE_MAIN_WIDTH}px`;
     reserveSpace();
     return { width: app.offsetWidth, height: app.offsetHeight };
   }
 
-  // 縦長・横長のうち大きく表示できる方を選び、画面に収まる倍率で拡大縮小する
-  function fitToViewport() {
-    // innerWidth/innerHeight はスマホで中身がはみ出すと広がってしまうため、表示領域そのものの大きさを使う
-    const { clientWidth, clientHeight } = document.documentElement;
-    const availableWidth = clientWidth - VIEWPORT_MARGIN * 2;
-    const availableHeight = clientHeight - VIEWPORT_MARGIN * 2;
+  // 縦長・横長のうち大きく表示できる方を選び、root に収まる倍率で拡大縮小する
+  function fit() {
+    const availableWidth = root.clientWidth - FIT_MARGIN * 2;
+    const availableHeight = root.clientHeight - FIT_MARGIN * 2;
     const scaleFor = ({ width, height }) => Math.min(availableWidth / width, availableHeight / height);
 
     let best = null;
     for (const name of LAYOUTS) {
-      const fit = scaleFor(applyLayout(name));
-      if (!best || fit > best.fit) best = { name, fit };
+      const fitScale = scaleFor(applyLayout(name));
+      if (!best || fitScale > best.fit) best = { name, fit: fitScale };
     }
     applyLayout(best.name);
     render();
@@ -338,11 +419,11 @@ export async function mountChecker(root, machine) {
     app.style.setProperty('--sfc-scale', scale);
   }
 
-  window.addEventListener('resize', fitToViewport);
+  const resizeObserver = new ResizeObserver(() => fit());
+  resizeObserver.observe(root);
   moveReelTo(0, false);
-  fitToViewport();
+  fit();
 
-  // テスト・デバッグ用の操作口
   return {
     state,
     render,
@@ -350,5 +431,11 @@ export async function mountChecker(root, machine) {
     get scale() { return scale; },
     get layout() { return app.dataset.layout; },
     get reelOffsetY() { return reelOffsetY; },
+    destroy() {
+      resizeObserver.disconnect();
+      clearTimeout(snapTimer);
+      root.replaceChildren();
+      root.classList.remove('sfc-root');
+    },
   };
 }

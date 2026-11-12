@@ -1,6 +1,8 @@
 // 機種定義の検証
 // 行・列の数え間違いなどの編集ミスを、ページを開いた時点で気付けるようにする。
 
+import { LAMP_COLORS } from './judge.js';
+
 // 制御表で「どの滑りコマ数でも停止しない」ことを表す値
 export const NEVER_STOPS = 5;
 
@@ -15,7 +17,9 @@ export function validateMachine(machine) {
     if (flag.nums.length !== machine.settings.length) {
       errors.push(`flags ${flag.name}: 置数が ${flag.nums.length} 個 (期待値 ${machine.settings.length})`);
     }
-    if (flag.color && !machine.colors?.[flag.color]) errors.push(`flags ${flag.name}: 色 "${flag.color}" が colors にない`);
+    if (flag.color && !LAMP_COLORS[flag.color]) {
+      errors.push(`flags ${flag.name}: 色 "${flag.color}" はない（使える色: ${Object.keys(LAMP_COLORS).join(', ')}）`);
+    }
   });
 
   const checkMap = (label, rows, columnCount) => {

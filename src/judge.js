@@ -3,6 +3,16 @@
 // 機種定義（machine）と条件から、成立している可能性のあるフラグと小役を求める。
 // 機種定義の形式は README.md を参照。
 
+// ランプの色（重複する小役を表す）。機種定義は色コードではなく、この名前で指定する。
+// 機種が増えても色合いが揃うよう、どの色も同じ明度・彩度（OKLCH で L=0.72, C=0.145）にして色相だけを変えている。
+// 色を足すときも同じ明度・彩度で作ること（どの色の上でも黒い文字が読める）。
+export const LAMP_COLORS = Object.freeze({
+  red: '#f27d76',    // 色相 25
+  yellow: '#c1a210', // 色相 95
+  blue: '#56aafb',   // 色相 250
+  purple: '#ba8bed', // 色相 305
+});
+
 // value を 0 以上 n 未満に収める（負の数・小数にも対応した剰余）
 export function mod(value, n) {
   return ((value % n) + n) % n;
@@ -36,7 +46,7 @@ function getBadgeColor(machine, flag, orderId, position) {
     if (when.orders && !when.orders.includes(orderId)) return null;
     if (when.positions && !when.positions.some(([from, to]) => position >= from && position <= to)) return null;
   }
-  return machine.colors[flag.color];
+  return LAMP_COLORS[flag.color];
 }
 
 export function formatPercent(num, allNum) {
