@@ -329,15 +329,16 @@ html.sfc-page body {
   flex: 1;
   min-width: 0;
   font-size: 15px;
+  line-height: 1.5; /* 行の高さを明示し、絵文字の箱がはみ出さない余裕を持たせる */
   overflow-wrap: anywhere;
 }
 
-/* 絵文字は高さ1文字分の箱に収め、行の高さ・基準線を動かさない */
+/* 絵文字は高さ1文字分の箱に収めて行の中央に置き、行の高さ・基準線を動かさない */
 .sfc-emoji {
   display: inline-block;
   height: 1em;
   line-height: 1;
-  vertical-align: -0.1em;
+  vertical-align: middle;
 }
 
 /* ---------- 操作 ---------- */
