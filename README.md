@@ -14,6 +14,7 @@
 src/
 ├── checker.js    mountChecker(): 機種定義から判別画面を組み立てる
 ├── checker.css   画面のスタイル（checker.js が自動で読み込む）
+├── help.js       使い方のガイド（画面の該当部分を明るく抜いて吹き出しで説明する。項目は機種定義から出し分ける）
 ├── judge.js      判定ロジック（画面に依存しない）
 ├── validate.js   機種定義の検証
 └── testing.js    正解データとの照合
@@ -199,7 +200,7 @@ ES モジュールを使うため、`index.html` をファイルとして直接�
 2. コミットして push し、タグを付ける（例: `git tag v1.0.1 && git push origin v1.0.1`）
 3. jsDelivr のキャッシュを温める。新しいタグのファイルは初回の取得だけ1ファイル数秒かかり、そのままだと最初に開いた人のページ表示が10秒以上遅れるため、先に一度取得しておく
    ```bash
-   for f in checker.js checker.css judge.js validate.js testing.js; do curl -s -o /dev/null -w "$f %{http_code}\n" "https://cdn.jsdelivr.net/gh/tunhguod/slot-flag-checker-core@1.0.1/src/$f"; done
+   for f in checker.js checker.css help.js judge.js validate.js testing.js; do curl -s -o /dev/null -w "$f %{http_code}\n" "https://cdn.jsdelivr.net/gh/tunhguod/slot-flag-checker-core@1.0.1/src/$f"; done
    ```
 4. 各機種リポジトリの `core.js` の `CORE_VERSION` を上げ、`index.html` の `core.js?v=` の数字も上げる。`test.html` と判別ページで動作を確認してから push する
 

@@ -8,6 +8,7 @@
 // （html, body, root の高さを 100% にするなど）。
 
 import { collectDisplayVariants, formatNote, formatPrizes, getPressedPosition, judge, mod, wrap } from './judge.js';
+import { createHelp } from './help.js';
 import { validateMachine } from './validate.js';
 
 const SNAP_DURATION_MS = 200;
@@ -296,6 +297,17 @@ export async function mountChecker(root, machine) {
     h('div', { class: 'sfc-switches' }, switches),
   ]);
 
+  // 使い方（ガイド）: ボタンはリール横の一番下。説明する部分（明るく抜く部分）を渡す。
+  // ダイアログは拡大縮小（.sfc-app の transform）の外に置き、読める大きさで出す
+  const help = createHelp(machine, h, {
+    reel: [reelWindow],
+    basis: [basisChoices.node],
+    slipAndSetting: [slipChoices.node, settingChoices.node],
+    lamps: groupViews.map((view) => view.node),
+    odds: groupViews.filter((view) => view.odds).map((view) => view.odds.parentElement),
+  });
+  side.append(help.button);
+
   const main = h('div', { class: 'sfc-main' }, [results, controls]);
   const app = h('main', { class: 'sfc-app' }, [reelWindow, side, main]);
   if (machine.contact) {
@@ -305,7 +317,7 @@ export async function mountChecker(root, machine) {
       ' までお願いします',
     ]));
   }
-  root.replaceChildren(app);
+  root.replaceChildren(app, help.dialog);
 
   // ---------- 描画 ----------
 
@@ -487,6 +499,7 @@ export async function mountChecker(root, machine) {
     scale = Math.min(best.fit, MAX_SCALE);
     app.dataset.layout = best.name;
     app.style.setProperty('--sfc-scale', scale);
+    help.relayout();
   }
 
   const resizeObserver = new ResizeObserver(() => fit());
