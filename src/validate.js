@@ -63,6 +63,12 @@ export function validateMachine(machine) {
     });
   });
 
+  if (machine.toggleFlags !== undefined && typeof machine.toggleFlags !== 'boolean') {
+    errors.push('toggleFlags: true / false ではない');
+  } else if (machine.toggleFlags && !machine.groups.some((group) => group.showOdds)) {
+    warnings.push('toggleFlags: showOdds のグループがないため、ランプを OFF にしても表示は変わらない');
+  }
+
   if (machine.notes !== undefined && typeof machine.notes !== 'function') {
     errors.push('notes: 関数ではない');
   } else if (machine.notes && errors.length === 0) {

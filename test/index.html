@@ -21,7 +21,7 @@
   </p>
   <ul id="results"></ul>
   <script type="module">
-    import { runGolden } from '../src/testing.js';
+    import { runExclusionChecks, runGolden } from '../src/testing.js';
     import { validateMachine } from '../src/validate.js';
 
     // テスト対象の機種リポジトリ（このリポジトリから見た相対パス）
@@ -36,12 +36,19 @@
         const golden = await (await fetch(new URL('test/golden.json', new URL(base, import.meta.url)), { cache: 'no-store' })).json();
         const { errors, warnings } = validateMachine(machine);
         const result = runGolden(machine, golden);
+        const exclusion = runExclusionChecks(machine);
         const ok = errors.length === 0 && result.failures.length === 0 && result.missing.length === 0
-          && result.total === result.goldenTotal;
+          && result.total === result.goldenTotal && exclusion.failures.length === 0;
         item.className = ok ? 'pass' : 'fail';
         item.textContent = `${ok ? 'PASS' : 'FAIL'} ${machine.id}: ${result.total} 状態中 ${result.failures.length} 件不一致`
-          + ` / 正解データ ${result.goldenTotal} 件 / 定義エラー ${errors.length} 件 / 警告 ${warnings.length} 件`;
-        const details = [...errors, ...warnings, ...result.failures.slice(0, 20).map((f) => `${f.key}\n  期待値: ${f.expected}\n  実際:   ${f.actual}`)];
+          + ` / 正解データ ${result.goldenTotal} 件 / 定義エラー ${errors.length} 件 / 警告 ${warnings.length} 件`
+          + ` / フラグ除外 ${exclusion.checks} 件中 ${exclusion.failures.length} 件不一致`;
+        const details = [
+          ...errors,
+          ...warnings,
+          ...result.failures.slice(0, 20).map((f) => `${f.key}\n  期待値: ${f.expected}\n  実際:   ${f.actual}`),
+          ...exclusion.failures.slice(0, 20).map((f) => `${f.key} 除外 ${f.excluded}\n  ${f.problems.join('\n  ')}`),
+        ];
         if (details.length > 0) item.append(Object.assign(document.createElement('pre'), { textContent: details.join('\n') }));
         results.push({ id: machine.id, ok });
       } catch (error) {

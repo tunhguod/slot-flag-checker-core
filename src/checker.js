@@ -232,19 +232,36 @@ export async function mountChecker(root, machine) {
     ]));
   }
 
+  // 合算確率から外すフラグ（"グループID/名前"）。点灯したランプのタップで ON / OFF を切り替える。
+  // その止まり方を見ている間だけの操作なので、条件（リール・滑り・設定・押し順・停止/押下）が変わったら全部 ON に戻す
+  const excluded = new Set();
+  let excludedFor = null; // excluded がどの条件のものか
+
   // 判別結果: グループごとのランプ盤（同じグループの同名フラグは1マスにまとめる）
+  // machine.toggleFlags の機種では、ランプをボタンにして、点灯中だけタップで ON / OFF できるようにする
   const groupViews = machine.groups.map((group) => {
     const names = [...new Set(machine.flags.filter((flag) => flag.group === group.id).map((flag) => flag.name))];
     const lamps = new Map(names.map((name) => {
       const percent = h('span', { class: 'sfc-lamp-percent' });
-      const node = h('li', { class: 'sfc-lamp' }, [h('span', { class: 'sfc-lamp-name', text: name }), percent]);
+      const content = [h('span', { class: 'sfc-lamp-name', text: name }), percent];
+      const node = machine.toggleFlags
+        ? h('button', { type: 'button', class: 'sfc-lamp', disabled: true }, content)
+        : h('div', { class: 'sfc-lamp' }, content);
+      if (machine.toggleFlags) {
+        node.addEventListener('click', () => {
+          const key = `${group.id}/${name}`;
+          if (excluded.has(key)) excluded.delete(key);
+          else excluded.add(key);
+          render();
+        });
+      }
       return [name, { node, percent }];
     }));
     const odds = group.showOdds ? h('span', { class: 'sfc-odds' }) : null;
     const header = h('div', { class: 'sfc-group-header' }, [h('h2', { class: 'sfc-group-label', text: group.label })]);
     if (odds) header.append(h('span', { class: 'sfc-odds-box' }, [h('span', { class: 'sfc-odds-label', text: '合算' }), odds]));
     // どのグループもマスの大きさを揃える（マスが少ないグループは左詰め）
-    const grid = h('ul', { class: 'sfc-lamps' }, [...lamps.values()].map((lamp) => lamp.node));
+    const grid = h('ul', { class: 'sfc-lamps' }, [...lamps.values()].map((lamp) => h('li', {}, [lamp.node])));
     grid.style.setProperty('--sfc-columns', LAMP_COLUMNS);
     return { group, lamps, odds, node: h('section', { class: 'sfc-group' }, [header, grid]) };
   });
@@ -294,6 +311,12 @@ export async function mountChecker(root, machine) {
 
   function setLamp(lamp, hit) {
     lamp.node.classList.toggle('is-on', Boolean(hit));
+    lamp.node.classList.toggle('is-excluded', Boolean(hit?.excluded));
+    if (machine.toggleFlags) {
+      lamp.node.disabled = !hit; // 消灯中はタップできない
+      if (hit) lamp.node.setAttribute('aria-pressed', String(!hit.excluded));
+      else lamp.node.removeAttribute('aria-pressed');
+    }
     // 「100%」がマスに収まるよう、% 記号は小さく表示する
     lamp.percent.replaceChildren(...(hit ? [hit.percent, h('small', { text: '%' })] : []));
     if (hit?.color) {
@@ -318,7 +341,14 @@ export async function mountChecker(root, machine) {
     stopRow.classList.toggle('is-aligned', !state.showsPressPosition);
     pressRow.classList.toggle('is-aligned', state.showsPressPosition);
 
-    const result = judge(machine, { order: state.order, setting: state.setting, slip: state.slip, position: pressed });
+    const condition = [state.order, state.setting, state.slip, state.showsPressPosition, state.reelPosition].join('|');
+    if (condition !== excludedFor) {
+      excluded.clear();
+      excludedFor = condition;
+    }
+    const result = judge(machine, {
+      order: state.order, setting: state.setting, slip: state.slip, position: pressed, excluded,
+    });
     result.groups.forEach(({ hits, odds }, i) => {
       const view = groupViews[i];
       const byName = new Map(hits.map((hit) => [hit.name, hit]));

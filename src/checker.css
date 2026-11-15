@@ -225,24 +225,29 @@ html.sfc-page body {
 }
 
 /* 特徴: 停止・押下の下に置く。停止・押下の数字と同じ書体で、強調は文字色だけにする。
-   該当なしでも行の高さは残し、表示の有無でレイアウトが動かないようにする */
+   「チャンス目 or ボーナス」のような長い特徴は欄の幅に収まらないため、2行まで折り返す。
+   高さは常に2行分にして、表示の有無や長さでレイアウトが動かないようにする */
 .sfc-trait {
   display: flex;
   flex-direction: column;
 }
 
 .sfc-trait-value {
-  height: 1.45em;
+  height: 2.9em; /* 2行分 */
   color: var(--sfc-ink-dim);
   font-family: var(--sfc-font-display);
-  font-size: 22px;
+  font-size: 15px; /* 停止・押下の数字（22px）の約0.7倍 */
   line-height: 1.45; /* DotGothic16 は字面の上下に余白が大きいため、詰めると行からはみ出す */
-  white-space: nowrap;
+  word-break: keep-all; /* 折り返しは空白の位置だけ（「チャンス目」などの語の途中で切らない） */
   overflow: hidden;
 }
 
 .sfc-trait[data-tone="strong"] .sfc-trait-value {
   color: var(--sfc-led);
+}
+
+.sfc-trait[data-tone="normal"] .sfc-trait-value {
+  color: var(--sfc-ink);
 }
 
 /* ---------- 判別結果: ランプ盤 ---------- */
@@ -299,12 +304,18 @@ html.sfc-page body {
   list-style: none;
 }
 
+/* ランプは機種によって div かボタン（タップで ON / OFF）。どちらでも同じ見た目にする */
 .sfc-lamp {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 100%;
   height: 38px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
   border-radius: 4px;
   background: var(--sfc-lamp-off);
   color: var(--sfc-ink-dim);
@@ -334,6 +345,18 @@ html.sfc-page body {
   background: var(--sfc-lamp, var(--sfc-ink));
   color: var(--sfc-lamp-ink, var(--sfc-ink-dark));
   box-shadow: 0 0 10px color-mix(in srgb, var(--sfc-lamp, var(--sfc-ink)) 55%, transparent);
+}
+
+button.sfc-lamp:enabled {
+  cursor: pointer;
+  touch-action: manipulation; /* 素早く続けてタップしても拡大にならないようにする */
+}
+
+/* OFF: 合算から外したランプ。灯りを消し、点灯色の枠だけ残す（% はそのまま） */
+.sfc-lamp.is-on.is-excluded {
+  background: var(--sfc-lamp-off);
+  color: var(--sfc-lamp, var(--sfc-ink));
+  box-shadow: inset 0 0 0 2px var(--sfc-lamp, var(--sfc-ink));
 }
 
 .sfc-lamp.is-on .sfc-lamp-name {

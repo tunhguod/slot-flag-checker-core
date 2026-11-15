@@ -61,7 +61,9 @@ export function formatOdds(machine, groupNum) {
 // order: 押し順のインデックス, setting: 設定のインデックス, slip: 滑りコマ数, position: 押下位置 (1〜symbols)
 // 戻り値の割合（percent）は、全グループの該当フラグの置数合計に対する比率
 // note は machine.notes の戻り値（notes がない・該当しないときは null）
-export function judge(machine, { order, setting, slip, position }) {
+// excluded: 合算確率から外すフラグ（"グループID/名前" の Set。ランプの OFF）。
+//   外したフラグも hits には残し（excluded: true）、割合も変えない。変わるのはグループの合算確率だけ
+export function judge(machine, { order, setting, slip, position, excluded = new Set() }) {
   const pressOrder = machine.pressOrders[order];
   const flagRow = getMapRow(pressOrder.flagMap, machine, position);
   const hits = machine.flags
@@ -77,12 +79,13 @@ export function judge(machine, { order, setting, slip, position }) {
         num: hit.num,
         percent: formatPercent(hit.num, allNum),
         color: getBadgeColor(machine, hit.flag, pressOrder.id, position),
+        excluded: excluded.has(`${group.id}/${hit.flag.name}`),
       }));
-    const groupNum = sum(groupHits.map((hit) => hit.num));
+    const counted = groupHits.filter((hit) => !hit.excluded);
     return {
       group,
       hits: groupHits,
-      odds: groupHits.length > 0 ? formatOdds(machine, groupNum) : null,
+      odds: counted.length > 0 ? formatOdds(machine, sum(counted.map((hit) => hit.num))) : null,
     };
   });
 
@@ -95,7 +98,7 @@ export function judge(machine, { order, setting, slip, position }) {
 }
 
 // 特徴（machine.notes の戻り値）の表示の強さ
-export const NOTE_TONES = Object.freeze(['strong', 'dim']);
+export const NOTE_TONES = Object.freeze(['strong', 'normal', 'dim']);
 
 // 特徴欄に表示する文字列（該当なしは空）
 export function formatNote(note) {
